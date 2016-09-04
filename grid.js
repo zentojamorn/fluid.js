@@ -69,7 +69,10 @@ Grid2D.prototype = {
 
     for (let i = sx;i < ex;i++) {
       for (let j = sy;j < ey;j++) {
-        this.data[this.height * i + j] += v;
+        var d = this.data[this.height * i + j];
+        if (Math.abs(d) < Math.abs(v)) {
+          this.data[this.height * i + j] = v;
+        }
       }
     }
   },

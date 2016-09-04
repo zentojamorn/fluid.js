@@ -1,5 +1,5 @@
-var WIDTH = 128;
-var HEIGHT = 128;
+var WIDTH = 5;
+var HEIGHT = 5;
 
 var Fluid = function(width, height, density) {
   this.width = width;
@@ -43,12 +43,12 @@ Fluid.prototype = {
 
   addInFlow: function(sx, sy, w, h, d, u, v) {
     var ssx = sx / this.gridSize;
-    var ssy = sy / this.gridSize;
+    var ssy = sy / this.gridSize + 1;
 
     var sex = (sx + w) / this.gridSize;
-    var sey = (sy + h) / this.gridSize;
+    var sey = (sy + h) / this.gridSize + 1;
 
-    this.q0.add(ssx, ssy, sex, sey, d);
+    this.q0.add(ssx, ssy - 1, sex, sey - 1, d);
     this.u0.add(ssx - 0.5, ssy, sex - 0.5, sey, u);
     this.v0.add(ssx, ssy - 0.5, sex, sey - 0.5, v);
   },
@@ -96,7 +96,7 @@ var advect = function(f, timestep) {
   // advect velocity u
   for (let i = 0;i < f.width + 1;i++) {
     for (let j = 0;j < f.height;j++) {
-      var u = f.u0.get(i - 0.5, j) * scale;
+      var u = f.u0.sample(i - 0.5, j) * scale;
       var v = f.v0.sample(i - 0.5, j) * scale;
       var advectedU = f.u0.sample(i - u - 0.5, j - v);
       f.u1.set(i - 0.5, j, advectedU);
@@ -107,12 +107,12 @@ var advect = function(f, timestep) {
   for (let i = 0;i < f.width;i++) {
     for (let j = 0;j < f.height + 1;j++) {
       var u = f.u0.sample(i, j - 0.5) * scale;
-      var v = f.v0.get(i, j - 0.5) * scale;
+      var v = f.v0.sample(i, j - 0.5) * scale;
       var advectedV = f.v0.sample(i - u, j - v - 0.5);
       f.v1.set(i, j - 0.5, advectedV);
     }
   }
-  
+
 }
 
 // compute divergence
@@ -226,6 +226,7 @@ var projectGaussSeidel = function(f, rhs, iterCount, timestep) {
         p1.set(x, y, newP);
       }
     }
+
   }
 }
 
@@ -262,13 +263,21 @@ var rhs = new Grid2D(WIDTH, HEIGHT, 0);
 
 var simulate = function(timestep) {
   computeRHS(rhs, fluid);
-  projectGaussSeidel(fluid, rhs, 500, timestep);
+  D.Log('rhs');
+  D.Log(rhs.toString());
+  projectGaussSeidel(fluid, rhs, 600, timestep);
+  D.Log('pressure');
+  D.Log(fluid.p1.toString());
   applyPressure(fluid, timestep);
-  //console.log('before advect');
-  //console.log(fluid.vel0ToString());
+  D.Log('before advect, vel0, u0, v0');
+  D.Log(fluid.vel0ToString());
+  D.Log(fluid.u0.toString());
+  D.Log(fluid.v0.toString());
   advect(fluid, timestep);
-  //console.log('after advect')
-  //console.log(fluid.vel1ToString());
+  D.Log('after advect, vel1, u1, v1');
+  D.Log(fluid.vel1ToString());
+  D.Log(fluid.u1.toString());
+  D.Log(fluid.v1.toString());
 }
 
 var draw = function(timestep) {
@@ -278,13 +287,18 @@ var draw = function(timestep) {
 }
 
 var loop = function() {
-  //console.log('before add in flow');
-  //console.log(fluid.vel0ToString());
-  fluid.addInFlow(0.2, 0.2, 0.6, 0.1, 1.0, 0.0, 40.0);
-  simulate(0.001);
-  draw(0.001);
+  //D.Log('before add in flow');
+  fluid.addInFlow(0.2, 0.2, 0.6, 0.2, 1.0, 0.0, 3.0);
+  D.Log('before everything, u0, v0, q0');
+  D.Log(fluid.u0.toString());
+  D.Log(fluid.v0.toString());
+  D.Log(fluid.q0.toString());
+  simulate(0.005);
+  D.Log('q1');
+  D.Log(fluid.q1.toString());
+  draw(0.005);
   fluid.swap();
-  //debugger;
+  D.Pause();
 
   window.requestAnimationFrame(loop);
 }
