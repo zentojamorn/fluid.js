@@ -24,6 +24,9 @@ Grid2D.prototype = {
   get: function(x, y) { // getter
     x += this.offsetX;
     y += this.offsetY;
+    if (Math.abs(Math.round(this.height * x + y) - (this.height * x + y)) > 0.000001) {
+      throw new Error(x + ", " + y + "x, y is not valid");
+    }
     return this.data[this.height * x + y];
   },
 
@@ -66,7 +69,7 @@ Grid2D.prototype = {
 
     for (let i = sx;i < ex;i++) {
       for (let j = sy;j < ey;j++) {
-        this.data[this.height * i + j] = Math.max(v, this.data[this.height * i + j]);
+        this.data[this.height * i + j] += v;
       }
     }
   },

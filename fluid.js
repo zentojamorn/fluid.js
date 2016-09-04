@@ -1,5 +1,5 @@
-var WIDTH = 10;
-var HEIGHT = 10;
+var WIDTH = 128;
+var HEIGHT = 128;
 
 var Fluid = function(width, height, density) {
   this.width = width;
@@ -51,8 +51,33 @@ Fluid.prototype = {
     this.q0.add(ssx, ssy, sex, sey, d);
     this.u0.add(ssx - 0.5, ssy, sex - 0.5, sey, u);
     this.v0.add(ssx, ssy - 0.5, sex, sey - 0.5, v);
-  }
+  },
 
+  vel0ToString: function() {
+    var out = "";
+    for (let y = 0;y < this.height;y++) {
+      for (let x = 0;x < this.width;x++) {
+        var u = parseFloat(this.u0.sample(x, y)).toFixed(2);
+        var v = parseFloat(this.v0.sample(x, y)).toFixed(2);
+        out += '(' + u + ',' + v + ') ';
+      }
+      out += "\n";
+    }
+    return out;
+  },
+
+  vel1ToString: function() {
+    var out = "";
+    for (let y = 0;y < this.height;y++) {
+      for (let x = 0;x < this.width;x++) {
+        var u = parseFloat(this.u1.sample(x, y)).toFixed(2);
+        var v = parseFloat(this.v1.sample(x, y)).toFixed(2);
+        out += '(' + u + ',' + v + ') ';
+      }
+      out += "\n";
+    }
+    return out;
+  }
 }
 
 var advect = function(f, timestep) {
@@ -71,9 +96,9 @@ var advect = function(f, timestep) {
   // advect velocity u
   for (let i = 0;i < f.width + 1;i++) {
     for (let j = 0;j < f.height;j++) {
-      var u = f.u0.sample(i - 0.5, j) * scale;
+      var u = f.u0.get(i - 0.5, j) * scale;
       var v = f.v0.sample(i - 0.5, j) * scale;
-      var advectedU = f.u0.sample(i - u, j - v);
+      var advectedU = f.u0.sample(i - u - 0.5, j - v);
       f.u1.set(i - 0.5, j, advectedU);
     }
   }
@@ -82,11 +107,12 @@ var advect = function(f, timestep) {
   for (let i = 0;i < f.width;i++) {
     for (let j = 0;j < f.height + 1;j++) {
       var u = f.u0.sample(i, j - 0.5) * scale;
-      var v = f.v0.sample(i, j - 0.5) * scale;
-      var advectedV = f.v0.sample(i - u, j - v);
+      var v = f.v0.get(i, j - 0.5) * scale;
+      var advectedV = f.v0.sample(i - u, j - v - 0.5);
       f.v1.set(i, j - 0.5, advectedV);
     }
   }
+  
 }
 
 // compute divergence
@@ -238,21 +264,27 @@ var simulate = function(timestep) {
   computeRHS(rhs, fluid);
   projectGaussSeidel(fluid, rhs, 500, timestep);
   applyPressure(fluid, timestep);
+  //console.log('before advect');
+  //console.log(fluid.vel0ToString());
   advect(fluid, timestep);
+  //console.log('after advect')
+  //console.log(fluid.vel1ToString());
 }
 
 var draw = function(timestep) {
-  fluidCanvas.drawQuantity();
-  fluidCanvas.drawVelocity(timestep * 100);
-  fluidCanvas.drawGrid();
+  fluidCanvas.drawQuantity(fluid.q1);
+  //fluidCanvas.drawVelocity(fluid.u0, fluid.v0, timestep * 100);
+  //fluidCanvas.drawGrid(fluid);
 }
 
 var loop = function() {
-  fluid.addInFlow(0.45, 0.2, 0.2, 0.2, 1.0, 0.0, 3.0);
-  simulate(0.002);
-  draw(0.002);
+  //console.log('before add in flow');
+  //console.log(fluid.vel0ToString());
+  fluid.addInFlow(0.2, 0.2, 0.6, 0.1, 1.0, 0.0, 40.0);
+  simulate(0.001);
+  draw(0.001);
   fluid.swap();
-  debugger;
+  //debugger;
 
   window.requestAnimationFrame(loop);
 }
