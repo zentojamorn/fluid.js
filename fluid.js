@@ -1,5 +1,5 @@
-var WIDTH = 5;
-var HEIGHT = 5;
+var WIDTH = 10;
+var HEIGHT = 10;
 
 var Fluid = function(width, height, density) {
   this.width = width;
@@ -13,8 +13,11 @@ var Fluid = function(width, height, density) {
   this.q0 = new Grid2D(width,      height,     0);
   this.q1 = new Grid2D(width,      height,     0);
 
-  this.u  = new Grid2D(width + 1,  height,     0,  0.5, 0.0);
-  this.v  = new Grid2D(width,      height + 1, 0,  0.0, 0.5);
+  this.u0 = new Grid2D(width + 1,  height,     0,  0.5, 0.0);
+  this.u1 = new Grid2D(width + 1,  height,     0,  0.5, 0.0);
+
+  this.v0 = new Grid2D(width,      height + 1, 0,  0.0, 0.5);
+  this.v1 = new Grid2D(width,      height + 1, 0,  0.0, 0.5);
 
   this.gridSize = 1 / Math.min(this.width, this.height);
 }
@@ -28,6 +31,14 @@ Fluid.prototype = {
     var tmpp = this.p0;
     this.p0 = this.p1;
     this.p1 = tmpp;
+
+    var tmpv = this.v0;
+    this.v0 = this.v1;
+    this.v1 = tmpv;
+
+    var tmpu = this.u0;
+    this.u0 = this.u1;
+    this.u1 = tmpu;
   },
 
   addInFlow: function(sx, sy, w, h, d, u, v) {
@@ -38,21 +49,42 @@ Fluid.prototype = {
     var sey = (sy + h) / this.gridSize;
 
     this.q0.add(ssx, ssy, sex, sey, d);
-    this.u.add(ssx, ssy, sex, sey, u);
-    this.v.add(ssx, ssy, sex, sey, v);
+    this.u0.add(ssx - 0.5, ssy, sex - 0.5, sey, u);
+    this.v0.add(ssx, ssy - 0.5, sex, sey - 0.5, v);
   }
+
 }
 
 var advect = function(f, timestep) {
+
+  // advect quantity
   var scale = timestep / f.gridSize;
   for (let i = 0;i < f.width;i++) {
     for (let j = 0;j < f.height;j++) {
-      var u = f.u.sample(i, j) * scale;
-      var v = f.v.sample(i, j) * scale;
-
+      var u = f.u0.sample(i, j) * scale;
+      var v = f.v0.sample(i, j) * scale;
       var advectedQuantity = f.q0.sample(i - u, j - v);
-
       f.q1.set(i, j, advectedQuantity);
+    }
+  }
+
+  // advect velocity u
+  for (let i = 0;i < f.width + 1;i++) {
+    for (let j = 0;j < f.height;j++) {
+      var u = f.u0.sample(i - 0.5, j) * scale;
+      var v = f.v0.sample(i - 0.5, j) * scale;
+      var advectedU = f.u0.sample(i - u, j - v);
+      f.u1.set(i - 0.5, j, advectedU);
+    }
+  }
+
+  // advect velocity v
+  for (let i = 0;i < f.width;i++) {
+    for (let j = 0;j < f.height + 1;j++) {
+      var u = f.u0.sample(i, j - 0.5) * scale;
+      var v = f.v0.sample(i, j - 0.5) * scale;
+      var advectedV = f.v0.sample(i - u, j - v);
+      f.v1.set(i, j - 0.5, advectedV);
     }
   }
 }
@@ -63,8 +95,8 @@ var computeRHS = function(rhs, f) {
   for (let i = 0;i < f.width;i++) {
     for (let j = 0;j < f.height;j++) {
       var rhsVal = -scale * (
-          f.u.get(i + 0.5, j) - f.u.get(i - 0.5, j) +
-          f.v.get(i, j + 0.5) - f.v.get(i, j - 0.5)
+          f.u0.get(i + 0.5, j) - f.u0.get(i - 0.5, j) +
+          f.v0.get(i, j + 0.5) - f.v0.get(i, j - 0.5)
         );
       rhs.set(i, j, rhsVal);
     }
@@ -169,7 +201,6 @@ var projectGaussSeidel = function(f, rhs, iterCount, timestep) {
       }
     }
   }
-  //console.log(p1.toString());
 }
 
 var applyPressure = function(f, timestep) {
@@ -179,25 +210,23 @@ var applyPressure = function(f, timestep) {
   for (let x = 0;x < f.width;x++) {
     for (let y = 0;y < f.height;y++) {
       var sp = scale * f.p1.get(x, y);
-      f.u.set(x - 0.5, y, f.u.get(x - 0.5, y) - sp);
-      f.u.set(x + 0.5, y, f.u.get(x + 0.5, y) + sp);
+      f.u0.set(x - 0.5, y, f.u0.get(x - 0.5, y) - sp);
+      f.u0.set(x + 0.5, y, f.u0.get(x + 0.5, y) + sp);
 
-      f.v.set(x, y - 0.5, f.v.get(x, y - 0.5) - sp);
-      f.v.set(x, y + 0.5, f.v.get(x, y + 0.5) + sp);
+      f.v0.set(x, y - 0.5, f.v0.get(x, y - 0.5) - sp);
+      f.v0.set(x, y + 0.5, f.v0.get(x, y + 0.5) + sp);
     }
   }
 
   for (let y = 0;y < f.height;y++) {
-    f.u.set(-0.5, y, 0);
-    f.u.set(f.width - 0.5, y, 0);
+    f.u0.set(-0.5, y, 0);
+    f.u0.set(f.width - 0.5, y, 0);
   }
 
   for (let x = 0;x < f.width;x++) {
-    f.v.set(x, -0.5, 0);
-    f.v.set(x, f.height - 0.5, 0);
+    f.v0.set(x, -0.5, 0);
+    f.v0.set(x, f.height - 0.5, 0);
   }
-
-  //console.log(f.v.toString());
 }
 
 var fluid = new Fluid(WIDTH, HEIGHT, 0.1);
@@ -207,28 +236,21 @@ var rhs = new Grid2D(WIDTH, HEIGHT, 0);
 
 var simulate = function(timestep) {
   computeRHS(rhs, fluid);
-  projectGaussSeidel(fluid, rhs, 300, timestep);
+  projectGaussSeidel(fluid, rhs, 500, timestep);
   applyPressure(fluid, timestep);
   advect(fluid, timestep);
-  //debugger;
-  //console.log(fluid)
 }
 
 var draw = function(timestep) {
   fluidCanvas.drawQuantity();
-  //fluidCanvas.drawVelocity(timestep);
-  //fluidCanvas.drawGrid();
+  fluidCanvas.drawVelocity(timestep * 100);
+  fluidCanvas.drawGrid();
 }
 
 var loop = function() {
   fluid.addInFlow(0.45, 0.2, 0.2, 0.2, 1.0, 0.0, 3.0);
-  console.log('u');
-  console.log(fluid.v.toString());
-  console.log('q0');
-  console.log(fluid.q0.toString());
-  simulate(0.005);
-  draw(0.005);
-  console.log(fluid.q1.toString());
+  simulate(0.002);
+  draw(0.002);
   fluid.swap();
   debugger;
 

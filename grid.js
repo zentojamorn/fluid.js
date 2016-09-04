@@ -64,9 +64,9 @@ Grid2D.prototype = {
     ex = ex.clamp(0, this.width - 1);
     ey = ey.clamp(0, this.height - 1);
 
-    for (let i = sx;i< ex;i++) {
+    for (let i = sx;i < ex;i++) {
       for (let j = sy;j < ey;j++) {
-        this.set(i, j, v);
+        this.data[this.height * i + j] = Math.max(v, this.data[this.height * i + j]);
       }
     }
   },

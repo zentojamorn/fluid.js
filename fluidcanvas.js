@@ -42,10 +42,10 @@ FluidCanvas.prototype = {
   drawVelocity: function(timestep) {
     for (var i = 0;i < this.fluid.width;i++) {
       for (var j = 0;j < this.fluid.height;j++) {
-        var u = this.fluid.u.sample(i, j);
-        var v = this.fluid.v.sample(i, j);
-        u *= timestep * 30;
-        v *= timestep * 30;
+        var u = this.fluid.u0.sample(i, j);
+        var v = this.fluid.v0.sample(i, j);
+        u *= timestep;
+        v *= timestep;
         this.drawCircle(i + 0.5, j + 0.5, 1);
         this.drawLine(i + 0.5, j + 0.5, u + i + 0.5, v + j + 0.5);
       }
